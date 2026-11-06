@@ -98,6 +98,25 @@ final class ReporterMiddlewareTest extends FunctionalTestCase
         self::assertSame(404, $behindProxy('10.0.0.2')->getStatusCode());
     }
 
+    #[Test]
+    public function forwarded_ip_skips_every_trusted_proxy_in_a_chain(): void
+    {
+        putenv('TAKUMA_REPORTER_TRUSTED_PROXIES=10.0.0.1,10.0.0.2');
+
+        self::assertSame(200, $this->report(ip: '10.0.0.1', headers: ['X-Forwarded-For' => '198.51.100.7, 203.0.113.10, 10.0.0.2'])->getStatusCode());
+        self::assertSame(404, $this->report(ip: '10.0.0.1', headers: ['X-Forwarded-For' => '203.0.113.10, 198.51.100.7, 10.0.0.2'])->getStatusCode());
+    }
+
+    #[Test]
+    public function host_without_site_configuration_is_answered(): void
+    {
+        $request = (new InternalRequest('https://andere-domain.test'.ReporterMiddleware::PATH))
+            ->withServerParams(['SCRIPT_NAME' => '/index.php', 'HTTP_HOST' => 'andere-domain.test', 'SERVER_NAME' => 'andere-domain.test', 'HTTPS' => 'on', 'REMOTE_ADDR' => '203.0.113.10'])
+            ->withHeader('Authorization', 'Bearer '.self::TOKEN);
+
+        self::assertSame(200, $this->executeFrontendSubRequest($request)->getStatusCode());
+    }
+
     /** @return array<string, array{string, string, array<string, string>}> */
     public static function rejectedRequests(): array
     {

@@ -52,10 +52,10 @@ final class ReporterMiddleware implements MiddlewareInterface
 
     private function ipAllowed(ServerRequestInterface $request): bool
     {
-        $allowed = $this->list('TAKUMA_REPORTER_IPS', 'ips');
+        $allowed = $this->csvSetting('TAKUMA_REPORTER_IPS', 'ips');
 
-        // IpUtils statt GeneralUtility::cmpIP: cmpIP wertet '*' und verkürzte Adressen als Wildcard.
-        return $allowed !== [] && IpUtils::checkIp($this->clientIp($request), $allowed);
+        // IpUtils statt GeneralUtility::cmpIP: cmpIP wertet '*' und verkürzte Adressen als Wildcard. Leere Liste ergibt false.
+        return IpUtils::checkIp($this->clientIp($request), $allowed);
     }
 
     /** Von rechts lesen und vertraute Proxys überspringen: alles links vom ersten fremden Eintrag kann der Client fälschen. */
@@ -64,9 +64,8 @@ final class ReporterMiddleware implements MiddlewareInterface
         // Bewusst REMOTE_ADDR statt reverseProxyIP der Installation: deren Proxy-Einstellung soll hier nicht greifen.
         $ip = $request->getServerParams()['REMOTE_ADDR'] ?? '';
         $ip = is_string($ip) ? $ip : '';
-        $proxies = $this->list('TAKUMA_REPORTER_TRUSTED_PROXIES', 'trustedProxies');
-        // Alle Header-Zeilen, sonst gewinnt bei mehrfach gesendetem Header die Zeile des Clients.
-        $hops = explode(',', implode(',', $request->getHeader('X-Forwarded-For')));
+        $proxies = $this->csvSetting('TAKUMA_REPORTER_TRUSTED_PROXIES', 'trustedProxies');
+        $hops = explode(',', $request->getHeaderLine('X-Forwarded-For'));
 
         while ($proxies !== [] && $ip !== '' && IpUtils::checkIp($ip, $proxies) && $hops !== []) {
             $ip = trim((string) array_pop($hops));
@@ -93,7 +92,7 @@ final class ReporterMiddleware implements MiddlewareInterface
     }
 
     /** @return list<string> */
-    private function list(string $env, string $key): array
+    private function csvSetting(string $env, string $key): array
     {
         return array_values(array_filter(array_map('trim', explode(',', $this->setting($env, $key)))));
     }
