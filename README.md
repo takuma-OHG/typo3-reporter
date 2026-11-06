@@ -8,6 +8,8 @@ Voraussetzung: PHP 8.1+, TYPO3 12.4, 13.4 oder 14, Installation per Composer.
 
 ## Installation
 
+### Bevorzugt: Path-Paket
+
 Die Extension kommt als Path-Paket ins Projekt, wie die übrigen takuma-Extensions. Auf dem Kundenserver braucht es keinen Zugang zu GitHub.
 
 1. Laufzeitdateien nach `packages/takuma_reporter` kopieren (ohne Tests und Build-Dateien):
@@ -28,6 +30,41 @@ vendor/bin/typo3 cache:flush
 3. `packages/takuma_reporter`, `composer.json` und `composer.lock` deployen und auf dem Server `composer install` ausführen.
 
 Updates: Schritt 1 wiederholen, dann `composer update takuma/typo3-reporter`. Welche Version ein Projekt hat, zeigt der takuma manager im Feld `reporter_version`.
+
+### Alternative: Git-Repo per Deploy-Key
+
+Nur nehmen, wenn Updates zentral per `composer update` aus GitHub kommen sollen. ssh sucht den Key im Home des SSH-Users. Jeder SSH-Zugang braucht also einen eigenen Key. Bei vielen Kunden ist das kaum zu pflegen.
+
+Zugriff auf das private Repo läuft pro Server über einen eigenen Deploy-Key (read-only), nicht über ein GitHub-Token. Ein geleakter Key öffnet dann nur dieses eine Repo und lässt sich einzeln widerrufen.
+
+1. Auf dem Server einen Key ohne Passphrase erzeugen: `ssh-keygen -t ed25519 -f ~/.ssh/takuma-reporter -N ""`
+2. Den Public Key in GitHub unter Repo > Settings > Deploy keys eintragen, ohne Schreibrecht. Pro Server ein Key, Titel = Server/Kunde.
+3. Git den Key und die Host-Keys von GitHub fest zuweisen. Im Chroot (Shared Hosting) liest ssh das Home aus `/etc/passwd` statt `$HOME` und findet `~/.ssh` sonst nicht, auch nicht `known_hosts`. Composer bricht dann mit "Host key verification failed" ab. Fingerprints nach dem Keyscan mit den [von GitHub veröffentlichten](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints) vergleichen (`ssh-keygen -lf ~/.ssh/known_hosts`):
+
+```bash
+ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+git config --global core.sshCommand "ssh -i $HOME/.ssh/takuma-reporter -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+```
+
+`--global` gilt für alle GitHub-Zugriffe dieses Server-Users. Braucht er weitere private Repos, stattdessen `GIT_SSH_COMMAND` nur für den Composer-Lauf setzen. Sind schon andere takuma-Pakete per Deploy-Key installiert, braucht jedes Repo einen eigenen Key: GitHub lässt einen Deploy-Key nur für ein Repo zu.
+
+4. `composer.json` des Projekts. Ohne Token liefert GitHub kein ZIP. Composer fällt dann nicht von selbst auf Git zurück. Deshalb `preferred-install: source` für das Paket:
+
+```json
+"repositories": [
+    { "type": "vcs", "url": "git@github.com:takuma-OHG/typo3-reporter.git" }
+],
+"config": {
+    "preferred-install": { "takuma/*": "source", "*": "dist" }
+}
+```
+
+```bash
+composer require takuma/typo3-reporter:^1.0
+vendor/bin/typo3 cache:flush
+```
+
+Immer eine Versions-Einschränkung wie `^1.0` verwenden, nie `dev-main`. Sonst landet jeder Push auf `main` beim nächsten `composer update` auf dem Kundenserver.
 
 ## Konfiguration
 
