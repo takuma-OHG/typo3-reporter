@@ -1,0 +1,6 @@
+# cat=basic; type=string; label=Token (64 Zeichen, im takuma manager erzeugt). Umgebungsvariable TAKUMA_REPORTER_TOKEN hat Vorrang. Leer = Endpunkt antwortet immer 404.
+token =
+# cat=basic; type=string; label=Erlaubte Absender-IPs (IPv4/IPv6, auch CIDR, kommagetrennt). Umgebungsvariable TAKUMA_REPORTER_IPS hat Vorrang.
+ips =
+# cat=basic; type=string; label=Vertraute Proxys, deren X-Forwarded-For übernommen wird (kommagetrennt). Umgebungsvariable TAKUMA_REPORTER_TRUSTED_PROXIES hat Vorrang. Leer = nur REMOTE_ADDR zählt.
+trustedProxies =

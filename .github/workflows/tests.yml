@@ -1,0 +1,37 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { typo3: '12', testing: '8', php: '8.1' }
+          - { typo3: '13', testing: '8', php: '8.2' }
+          - { typo3: '13', testing: '9', php: '8.4' }
+          - { typo3: '14', testing: '9', php: '8.2' }
+          - { typo3: '14', testing: '9', php: '8.5' }
+    env:
+      # TYPO3 12 ist ohne ELTS-Vertrag EOL mit offenen Advisories, Composer würde es sonst nicht installieren.
+      COMPOSER_NO_SECURITY_BLOCKING: 1
+    name: TYPO3 ${{ matrix.typo3 }} / PHP ${{ matrix.php }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php: ${{ matrix.php }}
+          extensions: pdo_sqlite
+          coverage: none
+      - run: composer require "typo3/cms-core:^${{ matrix.typo3 }}" "typo3/cms-frontend:^${{ matrix.typo3 }}" "typo3/testing-framework:^${{ matrix.testing }}" --no-update --no-interaction
+      - run: composer update --prefer-dist --no-interaction --no-progress
+      - run: .Build/bin/phpunit
+      - if: matrix.php == '8.5'
+        run: .Build/bin/pint --test && .Build/bin/phpstan analyse --no-progress
