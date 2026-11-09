@@ -8,24 +8,47 @@ Voraussetzung: PHP 8.1+, TYPO3 12.4, 13.4 oder 14, Installation per Composer.
 
 ## Installation
 
-Das Repo ist öffentlich. Auf dem Server braucht es weder Key noch Token.
+Das Repo ist öffentlich. Auf dem Server braucht es weder Key noch Token. Installiert wird direkt auf dem Server per SSH, ein Deploy des Projekts ist nicht nötig.
 
-In der `composer.json` des Projekts:
-
-```json
-"repositories": [
-    { "type": "vcs", "url": "https://github.com/takuma-OHG/typo3-reporter.git", "no-api": true }
-]
-```
+1. Sicherung anlegen:
 
 ```bash
-composer require takuma/typo3-reporter:^1.0
+cp composer.json composer.json.bak-reporter
+cp composer.lock composer.lock.bak-reporter
+```
+
+2. In der `composer.json` unter `repositories` das Repo eintragen. Ist `repositories` eine Liste (`[ … ]`):
+
+```json
+{ "type": "vcs", "url": "https://github.com/takuma-OHG/typo3-reporter.git", "no-api": true }
+```
+
+Ist `repositories` ein Objekt (`{ "local": { … } }`), braucht der Eintrag einen Namen. Sonst meldet Composer ungültiges JSON:
+
+```json
+"typo3-reporter": { "type": "vcs", "url": "https://github.com/takuma-OHG/typo3-reporter.git", "no-api": true }
+```
+
+Danach prüfen: `composer validate --no-check-publish`.
+
+3. Nur dieses Paket installieren, alle anderen bleiben auf ihrem Stand:
+
+```bash
+composer require takuma/typo3-reporter:^1.0 --update-no-dev
 vendor/bin/typo3 cache:flush
 ```
 
 `no-api` lädt per `git clone` statt über die GitHub-API. Ohne Token erlaubt GitHub nur 60 API-Abfragen pro Stunde und IP. Auf Shared Hosting teilen sich viele Kunden eine IP. Auf dem Server muss dafür `git` verfügbar sein.
 
-Immer eine Versions-Einschränkung wie `^1.0` verwenden, nie `dev-main`. Sonst landet jeder Push auf `main` beim nächsten `composer update` auf dem Kundenserver. Updates: `composer update takuma/typo3-reporter`, dann deployen. Welche Version ein Projekt hat, zeigt der takuma manager im Feld `reporter_version`.
+Bricht Composer mit „is fixed to … (lock file version) by a partial update“ ab, passen `composer.json` und `composer.lock` auf dem Server schon vorher nicht zusammen. Nicht mit `-W` lösen: Dann hebt Composer auf dem Live-System andere Pakete mit an. Entweder die Anforderung in der `composer.json` auf die installierte Version zurücksetzen oder das betroffene Paket bewusst mit aktualisieren (`composer update <paket> takuma/typo3-reporter -w --no-dev --dry-run` zuerst).
+
+Antwortet ein anderes VCS-Repo des Projekts (z. B. auf Bitbucket) mit HTTP 429, ist dessen anonymes API-Limit erreicht. Kurz warten und erneut starten.
+
+Updates: auf dem Server `composer update takuma/typo3-reporter --no-dev`, dann `vendor/bin/typo3 cache:flush`. Immer eine Versions-Einschränkung wie `^1.0` verwenden, nie `dev-main`. Sonst landet jeder Push auf `main` beim nächsten `composer update` auf dem Kundenserver. Welche Version ein Projekt hat, zeigt der takuma manager im Feld `reporter_version`.
+
+Rückbau: die beiden `.bak-reporter`-Dateien zurückkopieren, dann `composer install --no-dev`, dann `vendor/bin/typo3 cache:flush`.
+
+Die Änderung an `composer.json` und `composer.lock` entsteht auf dem Server. Damit der Stand im Git des Projekts stimmt, dieselbe Änderung lokal nachziehen.
 
 ### Ohne git auf dem Server: Path-Paket
 
